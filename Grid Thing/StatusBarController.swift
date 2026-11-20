@@ -48,7 +48,6 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         let dropView = StatusItemDropView(frame: button.bounds)
         dropView.autoresizingMask = [.width, .height]
         dropView.onClick = { [weak self] in self?.togglePopover(nil) }
-        dropView.onRightClick = { [weak self] in self?.showContextMenu() }
         dropView.onDragHighlight = { [weak button] on in button?.highlight(on) }
         dropView.onDrop = { [weak self] pasteboard in self?.handleDrop(pasteboard) ?? false }
         button.addSubview(dropView)
@@ -97,19 +96,6 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         }
     }
 
-    // MARK: - Right-click menu
-
-    private func showContextMenu() {
-        if popover.isShown { popover.performClose(nil) }
-        let menu = NSMenu()
-        menu.addItem(withTitle: "Quit Grid Thing", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        // Attach the menu just for this click so it drops down from the icon like a
-        // normal menu bar menu, then detach it so left-clicks still open the window.
-        statusItem.menu = menu
-        statusItem.button?.performClick(nil)
-        statusItem.menu = nil
-    }
-
     // MARK: - Dropping on the icon
 
     private func handleDrop(_ pasteboard: NSPasteboard) -> Bool {
@@ -124,7 +110,6 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
 /// Sits on top of the status bar button: takes the drag-and-drop, and passes clicks on.
 final class StatusItemDropView: NSView {
     var onClick: (() -> Void)?
-    var onRightClick: (() -> Void)?
     var onDrop: ((NSPasteboard) -> Bool)?
     var onDragHighlight: ((Bool) -> Void)?
 
@@ -151,16 +136,11 @@ final class StatusItemDropView: NSView {
     // MARK: Clicks
 
     override func mouseDown(with event: NSEvent) {
-        // Control-click counts as a right-click, as everywhere else on the Mac.
-        if event.modifierFlags.contains(.control) {
-            onRightClick?()
-        } else {
-            onClick?()
-        }
+        onClick?()
     }
 
     override func rightMouseDown(with event: NSEvent) {
-        onRightClick?()
+        onClick?()
     }
 
     // MARK: Drag and drop

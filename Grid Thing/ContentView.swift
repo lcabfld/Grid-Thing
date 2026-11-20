@@ -31,13 +31,17 @@ struct PopoverView: View {
                 .font(.callout)
             }
 
-            if store.isProcessing {
-                ProgressView()
-                    .progressViewStyle(.linear)
-            } else {
-                Button("Choose Output Location", action: store.chooseLocationAndSave)
-                    .buttonStyle(.bordered)
-                    .disabled(store.images.isEmpty)
+            HStack {
+                if store.isProcessing {
+                    ProgressView()
+                        .progressViewStyle(.linear)
+                } else {
+                    Button("Choose Output Location", action: store.chooseLocationAndSave)
+                        .buttonStyle(.bordered)
+                        .disabled(store.images.isEmpty)
+                }
+                Spacer(minLength: 8)
+                moreMenu
             }
 
             if let saved = store.lastSavedURL {
@@ -53,17 +57,24 @@ struct PopoverView: View {
                 }
                 .font(.callout)
             }
-
-            Divider()
-
-            Toggle("Alphabetical order", isOn: $store.alphabeticalOrder)
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .help("Lay photos out by filename, left to right, top to bottom")
         }
         .padding(14)
         .frame(width: 260)
+    }
+
+    /// The ••• button: settings and Quit.
+    private var moreMenu: some View {
+        Menu {
+            Toggle("Alphabetical Order", isOn: $store.alphabeticalOrder)
+            Divider()
+            Button("Quit Grid Thing") { NSApp.terminate(nil) }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("More")
     }
 
     private var dropZone: some View {
