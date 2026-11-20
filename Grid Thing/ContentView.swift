@@ -35,14 +35,9 @@ struct PopoverView: View {
                 ProgressView()
                     .progressViewStyle(.linear)
             } else {
-                Button(action: store.chooseLocationAndSave) {
-                    Text("Choose Output Location…")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .disabled(store.images.isEmpty)
+                Button("Choose Output Location", action: store.chooseLocationAndSave)
+                    .buttonStyle(.bordered)
+                    .disabled(store.images.isEmpty)
             }
 
             if let saved = store.lastSavedURL {
@@ -68,9 +63,6 @@ struct PopoverView: View {
                 .help("Lay photos out by filename, left to right, top to bottom")
 
             HStack {
-                Text("Drop photos on the menu bar icon")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
                     .buttonStyle(.link)
