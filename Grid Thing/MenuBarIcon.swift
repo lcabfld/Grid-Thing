@@ -20,8 +20,9 @@ enum MenuBarIcon {
         ".###....##.",
     ]
 
-    /// Points per glyph pixel. 2pt keeps every pixel sharp on standard and Retina displays.
-    private static let unit: CGFloat = 2
+    /// Points per glyph pixel. 1.5pt is exactly 3 Retina pixels, so every stroke
+    /// stays sharp and even (an exact 30% shrink, 1.4pt, gives uneven 2px/3px strokes).
+    private static let unit: CGFloat = 1.5
 
     static let image: NSImage = {
         let rows = glyph.count
