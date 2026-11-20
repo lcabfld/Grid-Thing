@@ -61,17 +61,28 @@ struct PopoverView: View {
                 .controlSize(.small)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .help("Lay photos out by filename, left to right, top to bottom")
-
-            HStack {
-                Spacer()
-                Button("Quit") { NSApp.terminate(nil) }
-                    .buttonStyle(.link)
-                    .font(.caption)
-                    .keyboardShortcut("q")
-            }
         }
         .padding(14)
         .frame(width: 260)
+        .overlay(alignment: .topTrailing) {
+            quitButton
+                .padding(4)
+        }
+    }
+
+    /// Small white circle with an X in the top-right corner. Quits Grid Thing.
+    private var quitButton: some View {
+        Button {
+            NSApp.terminate(nil)
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(Color.black.opacity(0.6), Color.white)
+                .font(.system(size: 13))
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut("q")
+        .help("Quit Grid Thing")
     }
 
     private var dropZone: some View {
