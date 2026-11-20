@@ -10,10 +10,11 @@ import AppKit
 import Combine
 import SwiftUI
 
-final class StatusBarController: NSObject, NSWindowDelegate, NSPopoverDelegate {
+final class StatusBarController: NSObject, NSPopoverDelegate {
     private let store: GridStore
     private let statusItem: NSStatusItem
     private let popover = NSPopover()
+    private var dropView: StatusItemDropView?
     private var cancellables = Set<AnyCancellable>()
     private var outsideClickMonitor: Any?
 
@@ -36,18 +37,21 @@ final class StatusBarController: NSObject, NSWindowDelegate, NSPopoverDelegate {
 
     private func configureButton() {
         guard let button = statusItem.button else { return }
-        let image = NSImage(systemSymbolName: "square.grid.2x2", accessibilityDescription: "Grid Thing")
-        image?.isTemplate = true
-        button.image = image
+        button.image = MenuBarIcon.image
         button.imagePosition = .imageLeading
         button.toolTip = "Grid Thing: drop photos here"
+        // Kept for keyboard and VoiceOver; mouse clicks go through the drop view below.
         button.target = self
         button.action = #selector(togglePopover(_:))
 
-        // The status item lives in its own little window. NSWindow passes drag
-        // events on to its delegate, so this lets photos be dropped on the icon.
-        button.window?.registerForDraggedTypes([.fileURL, .tiff, .png])
-        button.window?.delegate = self
+        // A transparent view laid over the icon that accepts dropped files.
+        let dropView = StatusItemDropView(frame: button.bounds)
+        dropView.autoresizingMask = [.width, .height]
+        dropView.onClick = { [weak self] in self?.togglePopover(nil) }
+        dropView.onDragHighlight = { [weak button] on in button?.highlight(on) }
+        dropView.onDrop = { [weak self] pasteboard in self?.handleDrop(pasteboard) ?? false }
+        button.addSubview(dropView)
+        self.dropView = dropView
     }
 
     private func configurePopover() {
@@ -77,13 +81,15 @@ final class StatusBarController: NSObject, NSWindowDelegate, NSPopoverDelegate {
     }
 
     func popoverDidShow(_ notification: Notification) {
-        // Belt and braces: close when clicking anywhere outside the app.
+        statusItem.button?.highlight(true)
+        // Close when clicking anywhere outside the app.
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.popover.performClose(nil)
         }
     }
 
     func popoverDidClose(_ notification: Notification) {
+        statusItem.button?.highlight(false)
         if let monitor = outsideClickMonitor {
             NSEvent.removeMonitor(monitor)
             outsideClickMonitor = nil
@@ -92,31 +98,78 @@ final class StatusBarController: NSObject, NSWindowDelegate, NSPopoverDelegate {
 
     // MARK: - Dropping on the icon
 
-    func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard canAccept(sender) else { return [] }
-        statusItem.button?.highlight(true)
-        return .copy
-    }
-
-    func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        canAccept(sender) ? .copy : []
-    }
-
-    func draggingExited(_ sender: NSDraggingInfo?) {
-        statusItem.button?.highlight(false)
-    }
-
-    func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        canAccept(sender)
-    }
-
-    func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        statusItem.button?.highlight(false)
-        let accepted = store.add(from: sender.draggingPasteboard)
+    private func handleDrop(_ pasteboard: NSPasteboard) -> Bool {
+        let accepted = store.add(from: pasteboard)
         if accepted {
             showPopover()
         }
         return accepted
+    }
+}
+
+/// Sits on top of the status bar button: takes the drag-and-drop, and passes clicks on.
+final class StatusItemDropView: NSView {
+    var onClick: (() -> Void)?
+    var onDrop: ((NSPasteboard) -> Bool)?
+    var onDragHighlight: ((Bool) -> Void)?
+
+    private static let acceptedTypes: [NSPasteboard.PasteboardType] = [
+        .fileURL,
+        .URL,
+        .tiff,
+        .png,
+        NSPasteboard.PasteboardType("public.jpeg"),
+        NSPasteboard.PasteboardType("public.image"),
+        NSPasteboard.PasteboardType("NSFilenamesPboardType"),
+    ]
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes(Self.acceptedTypes)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        registerForDraggedTypes(Self.acceptedTypes)
+    }
+
+    // MARK: Clicks
+
+    override func mouseDown(with event: NSEvent) {
+        onClick?()
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        onClick?()
+    }
+
+    // MARK: Drag and drop
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard canAccept(sender) else { return [] }
+        onDragHighlight?(true)
+        return .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        canAccept(sender) ? .copy : []
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        onDragHighlight?(false)
+    }
+
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        onDragHighlight?(false)
+    }
+
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        canAccept(sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        onDragHighlight?(false)
+        return onDrop?(sender.draggingPasteboard) ?? false
     }
 
     private func canAccept(_ sender: NSDraggingInfo) -> Bool {
